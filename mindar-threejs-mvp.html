@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MindAR + Three.js MVP</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      font-family: 'Courier New', monospace;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .logo {
+      width: 34px; height: 34px;
+      border: 2px solid #7c3aed;
+      border-radius: 8px;
+      display: grid; place-items: center;
+      font-size: 16px;
+    }
+    header h1 { font-size: 15px; letter-spacing: 2px; color: #c4b5fd; }
+    .badge {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 4px 10px;
+      border: 1px solid #7c3aed44;
+      border-radius: 20px;
+      color: #7c3aed;
+      background: #7c3aed11;
+    }
+
+    /* ── Main layout ── */
+    main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      padding: 32px 28px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 700px) {
+      main { grid-template-columns: 1fr; padding: 20px 16px; }
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 24px;
+    }
+    .card h2 {
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: #7c3aed;
+      margin-bottom: 18px;
+      text-transform: uppercase;
+    }
+
+    /* ── Code block ── */
+    .code-wrap {
+      position: relative;
+      background: #0d0d14;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .code-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot.r { background: #ff5f57; }
+    .dot.y { background: #febc2e; }
+    .dot.g { background: #28c840; }
+    .file-name { font-size: 11px; color: #666; margin-left: 6px; }
+    .copy-btn {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 3px 10px;
+      background: transparent;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: #888;
+      cursor: pointer;
+      transition: all .2s;
+      font-family: inherit;
+    }
+    .copy-btn:hover { border-color: #7c3aed; color: #c4b5fd; }
+    .copy-btn.copied { border-color: #28c840; color: #28c840; }
+
+    pre {
+      padding: 20px;
+      font-size: 12px;
+      line-height: 1.7;
+      overflow-x: auto;
+      color: #ccc;
+    }
+
+    /* syntax highlight */
+    .kw  { color: #c084fc; }
+    .str { color: #86efac; }
+    .num { color: #fb923c; }
+    .cm  { color: #4b5563; font-style: italic; }
+    .fn  { color: #67e8f9; }
+    .tag { color: #f472b6; }
+    .attr{ color: #fbbf24; }
+
+    /* ── Steps ── */
+    .steps { counter-reset: step; }
+    .step {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .step-num {
+      width: 28px; height: 28px; min-width: 28px;
+      border-radius: 50%;
+      border: 1.5px solid #7c3aed;
+      display: grid; place-items: center;
+      font-size: 11px;
+      color: #c4b5fd;
+      counter-increment: step;
+    }
+    .step-body h3 { font-size: 13px; margin-bottom: 4px; color: #fff; }
+    .step-body p  { font-size: 12px; color: #888; line-height: 1.6; }
+    .step-body code {
+      font-size: 11px;
+      background: rgba(124,58,237,.15);
+      color: #c4b5fd;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    /* ── Info boxes ── */
+    .info-grid { display: grid; gap: 10px; }
+    .info-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 8px;
+      border-left: 3px solid #7c3aed44;
+    }
+    .info-icon { font-size: 16px; line-height: 1.4; }
+    .info-text h4 { font-size: 12px; color: #ddd; margin-bottom: 2px; }
+    .info-text p  { font-size: 11px; color: #666; line-height: 1.5; }
+
+    /* span full width */
+    .full { grid-column: 1 / -1; }
+
+    /* ── Demo preview ── */
+    .demo-preview {
+      background: #0d0d14;
+      border: 1px dashed rgba(124,58,237,.3);
+      border-radius: 10px;
+      min-height: 120px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: #555;
+      font-size: 12px;
+      margin-top: 16px;
+    }
+    .demo-icon { font-size: 36px; }
+
+    /* ── Flow diagram ── */
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .flow-node {
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      border: 1px solid rgba(124,58,237,.4);
+      color: #c4b5fd;
+      background: rgba(124,58,237,.08);
+    }
+    .flow-arrow { color: #444; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">▲</div>
+  <h1>MINDAR + THREE.JS — MVP</h1>
+  <span class="badge">Image Tracking</span>
+</header>
+
+<main>
+
+  <!-- ── Código HTML principal ── -->
+  <div class="card full">
+    <h2>📄 index.html — Código completo</h2>
+    <div class="code-wrap">
+      <div class="code-bar">
+        <span class="dot r"></span>
+        <span class="dot y"></span>
+        <span class="dot g"></span>
+        <span class="file-name">index.html</span>
+        <button class="copy-btn" onclick="copyCode('code-main', this)">copiar</button>
+      </div>
+      <pre id="code-main"><span class="tag">&lt;!DOCTYPE html&gt;</span>
+<span class="tag">&lt;html&gt;</span>
+<span class="tag">&lt;head&gt;</span>
+  <span class="tag">&lt;meta</span> <span class="attr">charset</span>=<span class="str">"UTF-8"</span><span class="tag">/&gt;</span>
+  <span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="str">"viewport"</span> <span class="attr">content</span>=<span class="str">"width=device-width, initial-scale=1"</span><span class="tag">/&gt;</span>
+
+  <span class="cm">&lt;!-- 1. Three.js --&gt;</span>
+  <span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="str">"https://cdn.jsdelivr.net/npm/three@0.160/build/three.min.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
+
+  <span class="cm">&lt;!-- 2. MindAR (con soporte Three.js incluido) --&gt;</span>
+  <span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="str">"https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
+
+  <span class="tag">&lt;style&gt;</span>
+    body { margin: 0; overflow: hidden; }
+    #ar-container { width: 100vw; height: 100vh; position: relative; }
+  <span class="tag">&lt;/style&gt;</span>
+<span class="tag">&lt;/head&gt;</span>
+<span class="tag">&lt;body&gt;</span>
+
+  <span class="tag">&lt;div</span> <span class="attr">id</span>=<span class="str">"ar-container"</span><span class="tag">&gt;&lt;/div&gt;</span>
+
+  <span class="tag">&lt;script&gt;</span>
+  <span class="cm">// ─── 1. Inicializar MindAR con Three.js ───────────────────</span>
+  <span class="kw">const</span> mindarThree = <span class="kw">new</span> <span class="fn">MindARThree</span>({
+    container: document.<span class="fn">querySelector</span>(<span class="str">'#ar-container'</span>),
+    imageTargetSrc: <span class="str">'./targets.mind'</span>, <span class="cm">// tu imagen compilada</span>
+  });
+
+  <span class="cm">// ─── 2. Extraer escena Three.js ──────────────────────────</span>
+  <span class="kw">const</span> { renderer, scene, camera } = mindarThree;
+
+  <span class="cm">// ─── 3. Iluminación ──────────────────────────────────────</span>
+  <span class="kw">const</span> light = <span class="kw">new</span> THREE.<span class="fn">HemisphereLight</span>(<span class="num">0xffffff</span>, <span class="num">0x444444</span>, <span class="num">1</span>);
+  scene.<span class="fn">add</span>(light);
+
+  <span class="cm">// ─── 4. Crear objeto 3D (cubo como ejemplo) ──────────────</span>
+  <span class="kw">const</span> geometry = <span class="kw">new</span> THREE.<span class="fn">BoxGeometry</span>(<span class="num">0.1</span>, <span class="num">0.1</span>, <span class="num">0.1</span>);
+  <span class="kw">const</span> material = <span class="kw">new</span> THREE.<span class="fn">MeshStandardMaterial</span>({ color: <span class="num">0x7c3aed</span> });
+  <span class="kw">const</span> cube    = <span class="kw">new</span> THREE.<span class="fn">Mesh</span>(geometry, material);
+
+  <span class="cm">// ─── 5. Anclar objeto al marcador (índice 0 = primera imagen) ─</span>
+  <span class="kw">const</span> anchor = mindarThree.<span class="fn">addAnchor</span>(<span class="num">0</span>);
+  anchor.group.<span class="fn">add</span>(cube);
+
+  <span class="cm">// ─── 6. Animación y loop de render ───────────────────────</span>
+  renderer.<span class="fn">setAnimationLoop</span>(() => {
+    cube.rotation.y += <span class="num">0.01</span>; <span class="cm">// rotar el cubo</span>
+    renderer.<span class="fn">render</span>(scene, camera);
+  });
+
+  <span class="cm">// ─── 7. Arrancar la cámara AR ────────────────────────────</span>
+  mindarThree.<span class="fn">start</span>();
+  <span class="tag">&lt;/script&gt;</span>
+<span class="tag">&lt;/body&gt;</span>
+<span class="tag">&lt;/html&gt;</span></pre>
+    </div>
+  </div>
+
+  <!-- ── Pasos ── -->
+  <div class="card">
+    <h2>🚀 Pasos para correrlo</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Preparar tu imagen marcador</h3>
+          <p>Ve a <code>hiukim.github.io/mind-ar-js/samples/compile</code> y sube la imagen que quieres usar como marcador. Descarga el archivo <code>targets.mind</code> generado.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Organizar archivos</h3>
+          <p>Pon <code>index.html</code> y <code>targets.mind</code> en la misma carpeta.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Levantar un servidor local</h3>
+          <p>AR requiere HTTPS o localhost. Usa <code>npx serve .</code> o la extensión Live Server de VS Code.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Abrir en el celular</h3>
+          <p>Apunta la cámara al marcador impreso o en pantalla — aparecerá el cubo 3D girando encima.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Cómo funciona ── -->
+  <div class="card">
+    <h2>⚙️ Cómo funciona por dentro</h2>
+    <div class="flow">
+      <span class="flow-node">📷 Cámara</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node">MindAR detecta imagen</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node">Anchor 3D</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node">Three.js renderiza</span>
+    </div>
+    <div class="info-grid" style="margin-top:18px">
+      <div class="info-item">
+        <span class="info-icon">🎯</span>
+        <div class="info-text">
+          <h4>targets.mind</h4>
+          <p>Es tu imagen marcador compilada. MindAR la usa para detectar la posición y orientación en 3D en tiempo real.</p>
+        </div>
+      </div>
+      <div class="info-item">
+        <span class="info-icon">⚓</span>
+        <div class="info-text">
+          <h4>addAnchor(0)</h4>
+          <p>Crea un grupo de Three.js que sigue automáticamente la posición del marcador en pantalla. Todo lo que agregues a <code>anchor.group</code> flota sobre el marcador.</p>
+        </div>
+      </div>
+      <div class="info-item">
+        <span class="info-icon">🔄</span>
+        <div class="info-text">
+          <h4>setAnimationLoop</h4>
+          <p>Loop nativo de Three.js. Aquí puedes rotar, escalar, mover o animar cualquier objeto 3D cada frame.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Próximos pasos ── -->
+  <div class="card full">
+    <h2>🧩 ¿Qué más puedes agregar?</h2>
+    <div class="info-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))">
+      <div class="info-item">
+        <span class="info-icon">🖼️</span>
+        <div class="info-text">
+          <h4>Cargar un modelo GLTF/GLB</h4>
+          <p>Usa <code>GLTFLoader</code> de Three.js para mostrar modelos 3D reales en lugar del cubo.</p>
+        </div>
+      </div>
+      <div class="info-item">
+        <span class="info-icon">🎨</span>
+        <div class="info-text">
+          <h4>Múltiples marcadores</h4>
+          <p>Usa varios <code>addAnchor(0)</code>, <code>addAnchor(1)</code>... para detectar distintas imágenes.</p>
+        </div>
+      </div>
+      <div class="info-item">
+        <span class="info-icon">🖱️</span>
+        <div class="info-text">
+          <h4>Interactividad con tap</h4>
+          <p>Escucha el evento <code>anchor.onTargetFound</code> y <code>onTargetLost</code> para disparar animaciones o efectos.</p>
+        </div>
+      </div>
+      <div class="info-item">
+        <span class="info-icon">🔊</span>
+        <div class="info-text">
+          <h4>Audio y video</h4>
+          <p>Agrega un <code>&lt;video&gt;</code> HTML como textura de Three.js para reproducir video sobre el marcador.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+function copyCode(id, btn) {
+  // extract plain text from pre
+  const pre = document.getElementById(id);
+  const text = pre.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ copiado';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'copiar';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+</script>
+</body>
+</html>
