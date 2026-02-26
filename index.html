@@ -1,120 +1,68 @@
+
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script type="importmap">
     {
       "imports": {
-        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-        "mindar-face-three":"https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-three.prod.js"
+	"three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+	"three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+	"mindar-image-three":"https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
       }
     }
     </script>
     <script type="module">
       import * as THREE from 'three';
-      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-      import { MindARThree } from 'mindar-face-three';
-      class Avatar {
-        constructor() {
-          this.gltf = null;
-          this.morphTargetMeshes = [];
-        }
-        async init() {
-          const url = "https://assets.codepen.io/9177687/raccoon_head.glb";
-          const gltf = await new Promise((resolve) => {
-            const loader = new GLTFLoader();
-            loader.load(url, (gltf) => {
-              resolve(gltf);
-            });
-          });
-          gltf.scene.traverse((object) => {
-            if ((object).isBone && !this.root) {
-              this.root = object; // as THREE.Bone;
-            }
-            if (!(object).isMesh) return
-            const mesh = object;
-            if (!mesh.morphTargetDictionary || !mesh.morphTargetInfluences) return
-            this.morphTargetMeshes.push(mesh);
-          });
-          this.gltf = gltf;
-        }
-        updateBlendshapes(blendshapes) {
-          const categories = blendshapes.categories;
-          let coefsMap = new Map();
-          for (let i = 0; i < categories.length; ++i) {
-            coefsMap.set(categories[i].categoryName, categories[i].score);
-          }
-          for (const mesh of this.morphTargetMeshes) {
-            if (!mesh.morphTargetDictionary || !mesh.morphTargetInfluences) {
-              continue;
-            }
-            for (const [name, value] of coefsMap) {
-              if (!Object.keys(mesh.morphTargetDictionary).includes(name)) {
-                continue;
-              }
-              const idx = mesh.morphTargetDictionary[name];
-              mesh.morphTargetInfluences[idx] = value;
-            }
-          }
-        }
+      import { MindARThree } from 'mindar-image-three';
+      const mindarThree = new MindARThree({
+	container: document.querySelector("#container"),
+	imageTargetSrc: "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind"
+      });
+      const {renderer, scene, camera} = mindarThree;
+      const anchor = mindarThree.addAnchor(0);
+      const geometry = new THREE.PlaneGeometry(1, 0.55);
+      const material = new THREE.MeshBasicMaterial( {color: 0x00ffff, transparent: true, opacity: 0.5} );
+      const plane = new THREE.Mesh( geometry, material );
+      anchor.group.add(plane);
+      const start = async() => {
+	await mindarThree.start();
+	renderer.setAnimationLoop(() => {
+	  renderer.render(scene, camera);
+	});
       }
-      let mindarThree = null;
-      let avatar = null;
-      const setup = async () => {
-        mindarThree = new MindARThree({
-          container: document.querySelector("#container"),
-        });
-        const { renderer, scene, camera } = mindarThree;
-        const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-        scene.add(light);
-        const anchor = mindarThree.addAnchor(1);
-        await avatar.init();
-        avatar.gltf.scene.scale.set(2, 2, 2);
-        anchor.group.add(avatar.gltf.scene);
-      }
-      const start = async () => {
-        if (!mindarThree) {
-          await setup();
-        }
-        await mindarThree.start();
-        const { renderer, scene, camera } = mindarThree;
-        const feedVideo = document.querySelector("#video-feed");
-        feedVideo.srcObject = mindarThree.video.srcObject.clone();
-        feedVideo.play();
-        renderer.setAnimationLoop(() => {
-          const estimate = mindarThree.getLatestEstimate();
-          if (estimate && estimate.blendshapes) {
-            avatar.updateBlendshapes(estimate.blendshapes);
-          }
-          renderer.render(scene, camera);
-        });
-      }
-      start();
+      const startButton = document.querySelector("#startButton");
+      startButton.addEventListener("click", () => {
+	start();
+      });
+      stopButton.addEventListener("click", () => {
+	mindarThree.stop();
+	mindarThree.renderer.setAnimationLoop(null);
+      });
     </script>
     <style>
       body {
-        margin: 0;
+	margin: 0;
       }
       #container {
-        width: 100vw;
-        height: 100vh;
-        position: relative;
-        overflow: hidden;
+	width: 100vw;
+	height: 100vh;
+	position: relative;
+	overflow: hidden;
       }
-      #video-feed {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 50vw;
-        z-index: 9999999;
-        transform: scaleX(-1);
+      #control {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 2;
       }
     </style>
   </head>
   <body>
+    <div id="control">
+      <button id="startButton">Start</button>
+      <button id="stopButton">Stop</button>
+    </div>
     <div id="container">
     </div>
-    <video id="video-feed">
-    </video>
   </body>
 </html>
