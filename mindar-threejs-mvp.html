@@ -1,410 +1,503 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MindAR + Three.js MVP</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AR Experience</title>
 
-    body {
-      background: #0a0a0f;
-      font-family: 'Courier New', monospace;
-      color: #e0e0e0;
-      min-height: 100vh;
-    }
+    <!-- Fuentes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
 
-    /* ── Header ── */
-    header {
-      padding: 18px 28px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      background: rgba(255,255,255,0.03);
-      border-bottom: 1px solid rgba(255,255,255,0.07);
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+        "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+      }
     }
-    .logo {
-      width: 34px; height: 34px;
-      border: 2px solid #7c3aed;
-      border-radius: 8px;
-      display: grid; place-items: center;
-      font-size: 16px;
-    }
-    header h1 { font-size: 15px; letter-spacing: 2px; color: #c4b5fd; }
-    .badge {
-      margin-left: auto;
-      font-size: 10px;
-      padding: 4px 10px;
-      border: 1px solid #7c3aed44;
-      border-radius: 20px;
-      color: #7c3aed;
-      background: #7c3aed11;
-    }
+    </script>
 
-    /* ── Main layout ── */
-    main {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      padding: 32px 28px;
-      max-width: 1100px;
-      margin: 0 auto;
-    }
+    <script type="module">
+      import * as THREE from 'three';
+      import { MindARThree } from 'mindar-image-three';
+      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-    @media (max-width: 700px) {
-      main { grid-template-columns: 1fr; padding: 20px 16px; }
-    }
+      const mindarThree = new MindARThree({
+        container: document.querySelector("#container"),
+        imageTargetSrc: "./targets.mind",
+      });
 
-    /* ── Cards ── */
-    .card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 14px;
-      padding: 24px;
-    }
-    .card h2 {
-      font-size: 11px;
-      letter-spacing: 3px;
-      color: #7c3aed;
-      margin-bottom: 18px;
-      text-transform: uppercase;
-    }
+      const { renderer, scene, camera } = mindarThree;
+      const anchor = mindarThree.addAnchor(0);
 
-    /* ── Code block ── */
-    .code-wrap {
-      position: relative;
-      background: #0d0d14;
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    .code-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 16px;
-      background: rgba(255,255,255,0.03);
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-    .dot { width: 10px; height: 10px; border-radius: 50%; }
-    .dot.r { background: #ff5f57; }
-    .dot.y { background: #febc2e; }
-    .dot.g { background: #28c840; }
-    .file-name { font-size: 11px; color: #666; margin-left: 6px; }
-    .copy-btn {
-      margin-left: auto;
-      font-size: 10px;
-      padding: 3px 10px;
-      background: transparent;
-      border: 1px solid #333;
-      border-radius: 6px;
-      color: #888;
-      cursor: pointer;
-      transition: all .2s;
-      font-family: inherit;
-    }
-    .copy-btn:hover { border-color: #7c3aed; color: #c4b5fd; }
-    .copy-btn.copied { border-color: #28c840; color: #28c840; }
+      // Luces
+      const hemi = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+      scene.add(hemi);
+      const dir = new THREE.DirectionalLight(0xffffff, 1.5);
+      dir.position.set(0, 2, 2);
+      scene.add(dir);
 
-    pre {
-      padding: 20px;
-      font-size: 12px;
-      line-height: 1.7;
-      overflow-x: auto;
-      color: #ccc;
-    }
+      // Luz de acento naranja
+      const pointLight = new THREE.PointLight(0xff6a00, 2, 3);
+      pointLight.position.set(-1, 1, 1);
+      scene.add(pointLight);
 
-    /* syntax highlight */
-    .kw  { color: #c084fc; }
-    .str { color: #86efac; }
-    .num { color: #fb923c; }
-    .cm  { color: #4b5563; font-style: italic; }
-    .fn  { color: #67e8f9; }
-    .tag { color: #f472b6; }
-    .attr{ color: #fbbf24; }
+      // Partículas flotantes sobre el modelo
+      const particleGeo = new THREE.BufferGeometry();
+      const count = 120;
+      const positions = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        positions[i * 3]     = (Math.random() - 0.5) * 1.5;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 1.5;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 1.5;
+      }
+      particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const particleMat = new THREE.PointsMaterial({ color: 0xff6a00, size: 0.015, transparent: true, opacity: 0.8 });
+      const particles = new THREE.Points(particleGeo, particleMat);
+      anchor.group.add(particles);
 
-    /* ── Steps ── */
-    .steps { counter-reset: step; }
-    .step {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-    .step-num {
-      width: 28px; height: 28px; min-width: 28px;
-      border-radius: 50%;
-      border: 1.5px solid #7c3aed;
-      display: grid; place-items: center;
-      font-size: 11px;
-      color: #c4b5fd;
-      counter-increment: step;
-    }
-    .step-body h3 { font-size: 13px; margin-bottom: 4px; color: #fff; }
-    .step-body p  { font-size: 12px; color: #888; line-height: 1.6; }
-    .step-body code {
-      font-size: 11px;
-      background: rgba(124,58,237,.15);
-      color: #c4b5fd;
-      padding: 1px 6px;
-      border-radius: 4px;
-    }
+      // Anillo decorativo
+      const ringGeo = new THREE.TorusGeometry(0.55, 0.008, 16, 100);
+      const ringMat = new THREE.MeshStandardMaterial({ color: 0xff6a00, emissive: 0xff6a00, emissiveIntensity: 0.6 });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI / 2;
+      anchor.group.add(ring);
 
-    /* ── Info boxes ── */
-    .info-grid { display: grid; gap: 10px; }
-    .info-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 12px 14px;
-      background: rgba(255,255,255,0.02);
-      border-radius: 8px;
-      border-left: 3px solid #7c3aed44;
-    }
-    .info-icon { font-size: 16px; line-height: 1.4; }
-    .info-text h4 { font-size: 12px; color: #ddd; margin-bottom: 2px; }
-    .info-text p  { font-size: 11px; color: #666; line-height: 1.5; }
+      // Anillo exterior
+      const ring2Geo = new THREE.TorusGeometry(0.7, 0.004, 16, 100);
+      const ring2Mat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.3, transparent: true, opacity: 0.5 });
+      const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
+      ring2.rotation.x = Math.PI / 2;
+      anchor.group.add(ring2);
 
-    /* span full width */
-    .full { grid-column: 1 / -1; }
+      // Modelo GLB
+      const loader = new GLTFLoader();
+      let mixer;
+      loader.load('./assets/3d/modelo.glb', (gltf) => {
+        const model = gltf.scene;
+        model.scale.set(0.5, 0.5, 0.5);
+        model.position.set(0, 0, 0);
+        anchor.group.add(model);
 
-    /* ── Demo preview ── */
-    .demo-preview {
-      background: #0d0d14;
-      border: 1px dashed rgba(124,58,237,.3);
-      border-radius: 10px;
-      min-height: 120px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      color: #555;
-      font-size: 12px;
-      margin-top: 16px;
-    }
-    .demo-icon { font-size: 36px; }
+        if (gltf.animations && gltf.animations.length) {
+          mixer = new THREE.AnimationMixer(model);
+          mixer.clipAction(gltf.animations[0]).play();
+        }
+      });
 
-    /* ── Flow diagram ── */
-    .flow {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 8px;
-    }
-    .flow-node {
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 11px;
-      border: 1px solid rgba(124,58,237,.4);
-      color: #c4b5fd;
-      background: rgba(124,58,237,.08);
-    }
-    .flow-arrow { color: #444; font-size: 14px; }
-  </style>
-</head>
-<body>
+      // Eventos del anchor para mostrar/ocultar el HUD
+      anchor.onTargetFound = () => {
+        document.getElementById('hud').classList.add('visible');
+        document.getElementById('scanPrompt').classList.add('hidden');
+      };
+      anchor.onTargetLost = () => {
+        document.getElementById('hud').classList.remove('visible');
+        document.getElementById('scanPrompt').classList.remove('hidden');
+      };
 
-<header>
-  <div class="logo">▲</div>
-  <h1>MINDAR + THREE.JS — MVP</h1>
-  <span class="badge">Image Tracking</span>
-</header>
+      const clock = new THREE.Clock();
 
-<main>
+      const start = async () => {
+        await mindarThree.start();
+        document.getElementById('splash').classList.add('hidden');
+        document.getElementById('scanPrompt').classList.remove('hidden');
+        document.getElementById('control').classList.add('visible');
 
-  <!-- ── Código HTML principal ── -->
-  <div class="card full">
-    <h2>📄 index.html — Código completo</h2>
-    <div class="code-wrap">
-      <div class="code-bar">
-        <span class="dot r"></span>
-        <span class="dot y"></span>
-        <span class="dot g"></span>
-        <span class="file-name">index.html</span>
-        <button class="copy-btn" onclick="copyCode('code-main', this)">copiar</button>
+        renderer.setAnimationLoop(() => {
+          const delta = clock.getDelta();
+          const t = clock.elapsedTime;
+
+          // Animar partículas
+          particles.rotation.y = t * 0.3;
+          particles.rotation.x = t * 0.1;
+
+          // Pulso en el anillo
+          ring.scale.setScalar(1 + Math.sin(t * 2) * 0.04);
+          ring2.rotation.z = t * 0.5;
+
+          // Pulso en la luz de acento
+          pointLight.intensity = 1.5 + Math.sin(t * 3) * 0.5;
+
+          if (mixer) mixer.update(delta);
+
+          renderer.render(scene, camera);
+        });
+      };
+
+      document.getElementById('startButton').addEventListener('click', start);
+      document.getElementById('stopButton').addEventListener('click', () => {
+        mindarThree.stop();
+        renderer.setAnimationLoop(null);
+        document.getElementById('splash').classList.remove('hidden');
+        document.getElementById('scanPrompt').classList.add('hidden');
+        document.getElementById('hud').classList.remove('visible');
+        document.getElementById('control').classList.remove('visible');
+      });
+    </script>
+
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --accent: #ff6a00;
+        --accent2: #ee0979;
+        --glass: rgba(10, 10, 15, 0.6);
+        --text: #f0ede8;
+        --dim: rgba(240, 237, 232, 0.55);
+      }
+
+      body { background: #000; font-family: 'DM Sans', sans-serif; overflow: hidden; }
+
+      /* ── CONTAINER AR ── */
+      #container {
+        width: 100vw;
+        height: 100vh;
+        position: relative;
+        overflow: hidden;
+      }
+
+      /* ── SPLASH ── */
+      #splash {
+        position: fixed; inset: 0; z-index: 100;
+        background: linear-gradient(135deg, #0a0a0f 0%, #1a0a00 100%);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 32px;
+        transition: opacity 0.6s ease;
+      }
+      #splash.hidden { opacity: 0; pointer-events: none; }
+
+      .splash-logo {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: clamp(3rem, 12vw, 7rem);
+        letter-spacing: 0.12em;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        text-align: center;
+        line-height: 1;
+        filter: drop-shadow(0 0 40px rgba(255,106,0,0.4));
+      }
+      .splash-sub {
+        color: var(--dim);
+        font-size: 0.9rem;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        text-align: center;
+      }
+
+      .btn-group { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+      button {
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 500;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        border: none;
+        cursor: pointer;
+        padding: 14px 36px;
+        border-radius: 4px;
+        transition: all 0.25s ease;
+      }
+
+      #startButton {
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        color: #fff;
+        box-shadow: 0 0 30px rgba(255,106,0,0.4);
+      }
+      #startButton:hover { filter: brightness(1.15); transform: translateY(-2px); box-shadow: 0 0 50px rgba(255,106,0,0.6); }
+
+      #stopButton {
+        background: transparent;
+        color: var(--dim);
+        border: 1px solid rgba(240,237,232,0.2);
+      }
+      #stopButton:hover { border-color: var(--accent); color: var(--accent); }
+
+      /* ── SCAN PROMPT ── */
+      #scanPrompt {
+        position: fixed; bottom: 42px; left: 50%; transform: translateX(-50%);
+        z-index: 50;
+        display: flex; flex-direction: column; align-items: center; gap: 14px;
+        transition: opacity 0.4s ease;
+      }
+      #scanPrompt.hidden { opacity: 0; pointer-events: none; }
+
+      .scan-ring {
+        width: 72px; height: 72px;
+        border: 2px solid var(--accent);
+        border-radius: 50%;
+        position: relative;
+        animation: spin 3s linear infinite;
+      }
+      .scan-ring::before {
+        content: '';
+        position: absolute; inset: 6px;
+        border: 1px dashed rgba(255,106,0,0.4);
+        border-radius: 50%;
+        animation: spin-rev 2s linear infinite;
+      }
+      .scan-ring::after {
+        content: '';
+        position: absolute; top: 50%; left: 50%; width: 8px; height: 8px;
+        background: var(--accent);
+        border-radius: 50%;
+        transform: translate(-50%,-50%);
+        box-shadow: 0 0 12px var(--accent);
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes spin-rev { to { transform: rotate(-360deg); } }
+
+      .scan-label {
+        color: var(--dim);
+        font-size: 0.75rem;
+        letter-spacing: 0.25em;
+        text-transform: uppercase;
+        text-align: center;
+      }
+
+      /* ── HUD OVERLAY ── */
+      #hud {
+        position: fixed; inset: 0; z-index: 30;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+      }
+      #hud.visible { opacity: 1; }
+
+      /* Esquinas decorativas */
+      .corner {
+        position: absolute;
+        width: 40px; height: 40px;
+        border-color: var(--accent);
+        border-style: solid;
+      }
+      .corner-tl { top: 20px; left: 20px; border-width: 2px 0 0 2px; }
+      .corner-tr { top: 20px; right: 20px; border-width: 2px 2px 0 0; }
+      .corner-bl { bottom: 20px; left: 20px; border-width: 0 0 2px 2px; }
+      .corner-br { bottom: 20px; right: 20px; border-width: 0 2px 2px 0; }
+
+      /* Panel izquierdo */
+      .hud-panel-left {
+        position: absolute;
+        top: 50%; left: 0;
+        transform: translateY(-50%);
+        display: flex; flex-direction: column; gap: 8px;
+        padding: 0 0 0 16px;
+        animation: slideInLeft 0.6s ease forwards;
+      }
+
+      @keyframes slideInLeft {
+        from { opacity: 0; transform: translateY(-50%) translateX(-30px); }
+        to   { opacity: 1; transform: translateY(-50%) translateX(0); }
+      }
+
+      .hud-stat {
+        background: var(--glass);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,106,0,0.25);
+        border-left: 3px solid var(--accent);
+        padding: 10px 16px;
+        border-radius: 0 8px 8px 0;
+        min-width: 140px;
+      }
+      .hud-stat-label {
+        font-size: 0.62rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 3px;
+      }
+      .hud-stat-value {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 1.4rem;
+        color: var(--text);
+        letter-spacing: 0.05em;
+      }
+
+      /* Panel inferior */
+      .hud-bottom {
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        padding: 20px;
+        display: flex; align-items: flex-end; justify-content: space-between;
+        animation: slideUp 0.6s ease forwards;
+      }
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      .hud-title-block { max-width: 60%; }
+      .hud-title {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: clamp(2rem, 6vw, 3.5rem);
+        color: var(--text);
+        letter-spacing: 0.08em;
+        line-height: 1;
+        text-shadow: 0 0 40px rgba(255,106,0,0.5);
+      }
+      .hud-title span {
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      }
+      .hud-desc {
+        font-size: 0.78rem;
+        color: var(--dim);
+        margin-top: 6px;
+        max-width: 280px;
+        line-height: 1.6;
+        letter-spacing: 0.04em;
+      }
+
+      /* Badge de estado */
+      .hud-badge {
+        background: var(--glass);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,106,0,0.3);
+        border-radius: 40px;
+        padding: 10px 20px;
+        display: flex; align-items: center; gap: 8px;
+        font-size: 0.72rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--text);
+      }
+      .badge-dot {
+        width: 8px; height: 8px;
+        background: #00ff88;
+        border-radius: 50%;
+        box-shadow: 0 0 8px #00ff88;
+        animation: blink 1.5s ease-in-out infinite;
+      }
+      @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+      /* Panel superior derecho — tags */
+      .hud-tags {
+        position: absolute;
+        top: 20px; right: 20px;
+        display: flex; flex-direction: column; gap: 6px; align-items: flex-end;
+        animation: slideInRight 0.6s ease forwards;
+      }
+      @keyframes slideInRight {
+        from { opacity: 0; transform: translateX(20px); }
+        to   { opacity: 1; transform: translateX(0); }
+      }
+      .tag {
+        background: var(--glass);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(240,237,232,0.12);
+        padding: 5px 12px;
+        border-radius: 4px;
+        font-size: 0.68rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--dim);
+      }
+      .tag.active {
+        border-color: rgba(255,106,0,0.5);
+        color: var(--accent);
+      }
+
+      /* Línea de escaneo animada */
+      .scan-line {
+        position: absolute;
+        left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        opacity: 0.4;
+        animation: scanMove 4s linear infinite;
+        pointer-events: none;
+      }
+      @keyframes scanMove {
+        0%   { top: 0%; }
+        100% { top: 100%; }
+      }
+
+      /* Control fijo (siempre visible durante AR) */
+      #control {
+        position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+        z-index: 200;
+        display: none; gap: 8px;
+      }
+      #control.visible { display: flex; }
+      #control button { padding: 10px 20px; font-size: 0.75rem; }
+    </style>
+  </head>
+
+  <body>
+    <!-- SPLASH -->
+    <div id="splash">
+      <div class="splash-logo">AR<br>EXPERIENCE</div>
+      <div class="splash-sub">Realidad aumentada · Apunta tu cámara</div>
+      <div class="btn-group">
+        <button id="startButton">▶ Iniciar AR</button>
+        <button id="stopButton">⏹ Detener</button>
       </div>
-      <pre id="code-main"><span class="tag">&lt;!DOCTYPE html&gt;</span>
-<span class="tag">&lt;html&gt;</span>
-<span class="tag">&lt;head&gt;</span>
-  <span class="tag">&lt;meta</span> <span class="attr">charset</span>=<span class="str">"UTF-8"</span><span class="tag">/&gt;</span>
-  <span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="str">"viewport"</span> <span class="attr">content</span>=<span class="str">"width=device-width, initial-scale=1"</span><span class="tag">/&gt;</span>
-
-  <span class="cm">&lt;!-- 1. Three.js --&gt;</span>
-  <span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="str">"https://cdn.jsdelivr.net/npm/three@0.160/build/three.min.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
-
-  <span class="cm">&lt;!-- 2. MindAR (con soporte Three.js incluido) --&gt;</span>
-  <span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="str">"https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"</span><span class="tag">&gt;&lt;/script&gt;</span>
-
-  <span class="tag">&lt;style&gt;</span>
-    body { margin: 0; overflow: hidden; }
-    #ar-container { width: 100vw; height: 100vh; position: relative; }
-  <span class="tag">&lt;/style&gt;</span>
-<span class="tag">&lt;/head&gt;</span>
-<span class="tag">&lt;body&gt;</span>
-
-  <span class="tag">&lt;div</span> <span class="attr">id</span>=<span class="str">"ar-container"</span><span class="tag">&gt;&lt;/div&gt;</span>
-
-  <span class="tag">&lt;script&gt;</span>
-  <span class="cm">// ─── 1. Inicializar MindAR con Three.js ───────────────────</span>
-  <span class="kw">const</span> mindarThree = <span class="kw">new</span> <span class="fn">MindARThree</span>({
-    container: document.<span class="fn">querySelector</span>(<span class="str">'#ar-container'</span>),
-    imageTargetSrc: <span class="str">'./targets.mind'</span>, <span class="cm">// tu imagen compilada</span>
-  });
-
-  <span class="cm">// ─── 2. Extraer escena Three.js ──────────────────────────</span>
-  <span class="kw">const</span> { renderer, scene, camera } = mindarThree;
-
-  <span class="cm">// ─── 3. Iluminación ──────────────────────────────────────</span>
-  <span class="kw">const</span> light = <span class="kw">new</span> THREE.<span class="fn">HemisphereLight</span>(<span class="num">0xffffff</span>, <span class="num">0x444444</span>, <span class="num">1</span>);
-  scene.<span class="fn">add</span>(light);
-
-  <span class="cm">// ─── 4. Crear objeto 3D (cubo como ejemplo) ──────────────</span>
-  <span class="kw">const</span> geometry = <span class="kw">new</span> THREE.<span class="fn">BoxGeometry</span>(<span class="num">0.1</span>, <span class="num">0.1</span>, <span class="num">0.1</span>);
-  <span class="kw">const</span> material = <span class="kw">new</span> THREE.<span class="fn">MeshStandardMaterial</span>({ color: <span class="num">0x7c3aed</span> });
-  <span class="kw">const</span> cube    = <span class="kw">new</span> THREE.<span class="fn">Mesh</span>(geometry, material);
-
-  <span class="cm">// ─── 5. Anclar objeto al marcador (índice 0 = primera imagen) ─</span>
-  <span class="kw">const</span> anchor = mindarThree.<span class="fn">addAnchor</span>(<span class="num">0</span>);
-  anchor.group.<span class="fn">add</span>(cube);
-
-  <span class="cm">// ─── 6. Animación y loop de render ───────────────────────</span>
-  renderer.<span class="fn">setAnimationLoop</span>(() => {
-    cube.rotation.y += <span class="num">0.01</span>; <span class="cm">// rotar el cubo</span>
-    renderer.<span class="fn">render</span>(scene, camera);
-  });
-
-  <span class="cm">// ─── 7. Arrancar la cámara AR ────────────────────────────</span>
-  mindarThree.<span class="fn">start</span>();
-  <span class="tag">&lt;/script&gt;</span>
-<span class="tag">&lt;/body&gt;</span>
-<span class="tag">&lt;/html&gt;</span></pre>
     </div>
-  </div>
 
-  <!-- ── Pasos ── -->
-  <div class="card">
-    <h2>🚀 Pasos para correrlo</h2>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <h3>Preparar tu imagen marcador</h3>
-          <p>Ve a <code>hiukim.github.io/mind-ar-js/samples/compile</code> y sube la imagen que quieres usar como marcador. Descarga el archivo <code>targets.mind</code> generado.</p>
+    <!-- SCAN PROMPT (después de iniciar, antes de detectar) -->
+    <div id="scanPrompt" class="hidden">
+      <div class="scan-ring"></div>
+      <div class="scan-label">Apunta al marcador</div>
+    </div>
+
+    <!-- HUD (cuando target detectado) -->
+    <div id="hud">
+      <!-- Esquinas -->
+      <div class="corner corner-tl"></div>
+      <div class="corner corner-tr"></div>
+      <div class="corner corner-bl"></div>
+      <div class="corner corner-br"></div>
+
+      <!-- Línea de escaneo -->
+      <div class="scan-line"></div>
+
+      <!-- Stats izquierda -->
+      <div class="hud-panel-left">
+        <div class="hud-stat">
+          <div class="hud-stat-label">Estado</div>
+          <div class="hud-stat-value">ACTIVO</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-label">Tracking</div>
+          <div class="hud-stat-value">100%</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-label">Profundidad</div>
+          <div class="hud-stat-value">AR·3D</div>
         </div>
       </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <h3>Organizar archivos</h3>
-          <p>Pon <code>index.html</code> y <code>targets.mind</code> en la misma carpeta.</p>
-        </div>
+
+      <!-- Tags superior derecha -->
+      <div class="hud-tags">
+        <div class="tag active">✦ Modelo 3D</div>
+        <div class="tag">Realidad Aumentada</div>
+        <div class="tag">WebXR</div>
       </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-body">
-          <h3>Levantar un servidor local</h3>
-          <p>AR requiere HTTPS o localhost. Usa <code>npx serve .</code> o la extensión Live Server de VS Code.</p>
+
+      <!-- Panel inferior -->
+      <div class="hud-bottom">
+        <div class="hud-title-block">
+          <div class="hud-title">OBJETO<br><span>DETECTADO</span></div>
+          <div class="hud-desc">Modelo 3D renderizado en tiempo real sobre tu marcador. Mueve el dispositivo para explorar desde todos los ángulos.</div>
         </div>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <div class="step-body">
-          <h3>Abrir en el celular</h3>
-          <p>Apunta la cámara al marcador impreso o en pantalla — aparecerá el cubo 3D girando encima.</p>
+        <div class="hud-badge">
+          <div class="badge-dot"></div>
+          Live · AR
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ── Cómo funciona ── -->
-  <div class="card">
-    <h2>⚙️ Cómo funciona por dentro</h2>
-    <div class="flow">
-      <span class="flow-node">📷 Cámara</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-node">MindAR detecta imagen</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-node">Anchor 3D</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-node">Three.js renderiza</span>
+    <!-- Contenedor AR -->
+    <div id="container"></div>
+
+    <!-- Botones de control visibles durante AR -->
+    <div id="control">
+      <button id="startButton">▶ Start</button>
+      <button id="stopButton">⏹ Stop</button>
     </div>
-    <div class="info-grid" style="margin-top:18px">
-      <div class="info-item">
-        <span class="info-icon">🎯</span>
-        <div class="info-text">
-          <h4>targets.mind</h4>
-          <p>Es tu imagen marcador compilada. MindAR la usa para detectar la posición y orientación en 3D en tiempo real.</p>
-        </div>
-      </div>
-      <div class="info-item">
-        <span class="info-icon">⚓</span>
-        <div class="info-text">
-          <h4>addAnchor(0)</h4>
-          <p>Crea un grupo de Three.js que sigue automáticamente la posición del marcador en pantalla. Todo lo que agregues a <code>anchor.group</code> flota sobre el marcador.</p>
-        </div>
-      </div>
-      <div class="info-item">
-        <span class="info-icon">🔄</span>
-        <div class="info-text">
-          <h4>setAnimationLoop</h4>
-          <p>Loop nativo de Three.js. Aquí puedes rotar, escalar, mover o animar cualquier objeto 3D cada frame.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Próximos pasos ── -->
-  <div class="card full">
-    <h2>🧩 ¿Qué más puedes agregar?</h2>
-    <div class="info-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))">
-      <div class="info-item">
-        <span class="info-icon">🖼️</span>
-        <div class="info-text">
-          <h4>Cargar un modelo GLTF/GLB</h4>
-          <p>Usa <code>GLTFLoader</code> de Three.js para mostrar modelos 3D reales en lugar del cubo.</p>
-        </div>
-      </div>
-      <div class="info-item">
-        <span class="info-icon">🎨</span>
-        <div class="info-text">
-          <h4>Múltiples marcadores</h4>
-          <p>Usa varios <code>addAnchor(0)</code>, <code>addAnchor(1)</code>... para detectar distintas imágenes.</p>
-        </div>
-      </div>
-      <div class="info-item">
-        <span class="info-icon">🖱️</span>
-        <div class="info-text">
-          <h4>Interactividad con tap</h4>
-          <p>Escucha el evento <code>anchor.onTargetFound</code> y <code>onTargetLost</code> para disparar animaciones o efectos.</p>
-        </div>
-      </div>
-      <div class="info-item">
-        <span class="info-icon">🔊</span>
-        <div class="info-text">
-          <h4>Audio y video</h4>
-          <p>Agrega un <code>&lt;video&gt;</code> HTML como textura de Three.js para reproducir video sobre el marcador.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-</main>
-
-<script>
-function copyCode(id, btn) {
-  // extract plain text from pre
-  const pre = document.getElementById(id);
-  const text = pre.innerText;
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = '✓ copiado';
-    btn.classList.add('copied');
-    setTimeout(() => {
-      btn.textContent = 'copiar';
-      btn.classList.remove('copied');
-    }, 2000);
-  });
-}
-</script>
-</body>
+  </body>
 </html>
