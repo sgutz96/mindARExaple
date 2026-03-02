@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AR Experience</title>
 
+    <!-- Fuentes -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
@@ -24,165 +25,115 @@
       import { MindARThree } from 'mindar-image-three';
       import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+      const mindarThree = new MindARThree({
+        container: document.querySelector("#container"),
+        imageTargetSrc: "./assets/target/Pachito_1.mind",
+      });
+
+      const { renderer, scene, camera } = mindarThree;
+      const anchor = mindarThree.addAnchor(0);
+
+      // Luces
+      const hemi = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+      scene.add(hemi);
+      const dir = new THREE.DirectionalLight(0xffffff, 1.5);
+      dir.position.set(0, 2, 2);
+      scene.add(dir);
+
+      // Luz de acento naranja
+      const pointLight = new THREE.PointLight(0xff6a00, 2, 3);
+      pointLight.position.set(-1, 1, 1);
+      scene.add(pointLight);
+
+      // Partículas flotantes sobre el modelo
+      const particleGeo = new THREE.BufferGeometry();
+      const count = 120;
+      const positions = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        positions[i * 3]     = (Math.random() - 0.5) * 1.5;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 1.5;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 1.5;
+      }
+      particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const particleMat = new THREE.PointsMaterial({ color: 0xff6a00, size: 0.015, transparent: true, opacity: 0.8 });
+      const particles = new THREE.Points(particleGeo, particleMat);
+      anchor.group.add(particles);
+
+      // Anillo decorativo
+      const ringGeo = new THREE.TorusGeometry(0.55, 0.008, 16, 100);
+      const ringMat = new THREE.MeshStandardMaterial({ color: 0xff6a00, emissive: 0xff6a00, emissiveIntensity: 0.6 });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI / 2;
+      anchor.group.add(ring);
+
+      // Anillo exterior
+      const ring2Geo = new THREE.TorusGeometry(0.7, 0.004, 16, 100);
+      const ring2Mat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.3, transparent: true, opacity: 0.5 });
+      const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
+      ring2.rotation.x = Math.PI / 2;
+      anchor.group.add(ring2);
+
+      // Modelo GLB
+      const loader = new GLTFLoader();
+      let mixer;
+      loader.load('./assets/3d/modelo.glb', (gltf) => {
+        const model = gltf.scene;
+        model.scale.set(0.5, 0.5, 0.5);
+        model.position.set(0, 0, 0);
+        anchor.group.add(model);
+
+        if (gltf.animations && gltf.animations.length) {
+          mixer = new THREE.AnimationMixer(model);
+          mixer.clipAction(gltf.animations[0]).play();
+        }
+      });
+
+      // Eventos del anchor para mostrar/ocultar el HUD
+      anchor.onTargetFound = () => {
+        document.getElementById('hud').classList.add('visible');
+        document.getElementById('scanPrompt').classList.add('hidden');
+      };
+      anchor.onTargetLost = () => {
+        document.getElementById('hud').classList.remove('visible');
+        document.getElementById('scanPrompt').classList.remove('hidden');
+      };
+
       const clock = new THREE.Clock();
 
-      // ── Estado global de targets activos
-      const targetState = { hud1: false, hud2: false };
-
-      function updateHUDs() {
-        const count = Object.values(targetState).filter(Boolean).length;
-
-        if (count >= 2) {
-          // Ambos visibles → ocultar todos los HUDs
-          document.getElementById('hud1').classList.remove('visible');
-          document.getElementById('hud2').classList.remove('visible');
-          document.getElementById('scanPrompt').classList.add('hidden');
-        } else if (count === 1) {
-          // Solo uno → mostrar el que corresponde
-          document.getElementById('hud1').classList.toggle('visible', targetState.hud1);
-          document.getElementById('hud2').classList.toggle('visible', targetState.hud2);
-          document.getElementById('scanPrompt').classList.add('hidden');
-        } else {
-          // Ninguno → ocultar HUDs, mostrar scan prompt
-          document.getElementById('hud1').classList.remove('visible');
-          document.getElementById('hud2').classList.remove('visible');
-          document.getElementById('scanPrompt').classList.remove('hidden');
-        }
-      }
-
-      function createARInstance(containerEl, targetSrc, hudId) {
-        const mindarThree = new MindARThree({
-          container: containerEl,
-          imageTargetSrc: targetSrc,
-        });
-
-        const { renderer, scene, camera } = mindarThree;
-        const anchor = mindarThree.addAnchor(0);
-
-        // Luces
-        const hemi = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-        scene.add(hemi);
-        const dir = new THREE.DirectionalLight(0xffffff, 1.5);
-        dir.position.set(0, 2, 2);
-        scene.add(dir);
-
-        const pointLight = new THREE.PointLight(0xff6a00, 2, 3);
-        pointLight.position.set(-1, 1, 1);
-        scene.add(pointLight);
-
-        // Partículas
-        const particleGeo = new THREE.BufferGeometry();
-        const count = 120;
-        const positions = new Float32Array(count * 3);
-        for (let i = 0; i < count; i++) {
-          positions[i * 3]     = (Math.random() - 0.5) * 1.5;
-          positions[i * 3 + 1] = (Math.random() - 0.5) * 1.5;
-          positions[i * 3 + 2] = (Math.random() - 0.5) * 1.5;
-        }
-        particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        const particleMat = new THREE.PointsMaterial({ color: 0xff6a00, size: 0.015, transparent: true, opacity: 0.8 });
-        const particles = new THREE.Points(particleGeo, particleMat);
-        anchor.group.add(particles);
-
-        // Anillos
-        const ringGeo = new THREE.TorusGeometry(0.55, 0.008, 16, 100);
-        const ringMat = new THREE.MeshStandardMaterial({ color: 0xff6a00, emissive: 0xff6a00, emissiveIntensity: 0.6 });
-        const ring = new THREE.Mesh(ringGeo, ringMat);
-        ring.rotation.x = Math.PI / 2;
-        anchor.group.add(ring);
-
-        const ring2Geo = new THREE.TorusGeometry(0.7, 0.004, 16, 100);
-        const ring2Mat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.3, transparent: true, opacity: 0.5 });
-        const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
-        ring2.rotation.x = Math.PI / 2;
-        anchor.group.add(ring2);
-
-        // Modelo GLB
-        const loader = new GLTFLoader();
-        let mixer;
-        loader.load('./assets/3d/modelo.glb', (gltf) => {
-          const model = gltf.scene;
-          model.scale.set(0.5, 0.5, 0.5);
-          model.position.set(0, 0, 0);
-          anchor.group.add(model);
-          if (gltf.animations && gltf.animations.length) {
-            mixer = new THREE.AnimationMixer(model);
-            mixer.clipAction(gltf.animations[0]).play();
-          }
-        });
-
-        // ── Eventos con lógica centralizada
-        anchor.onTargetFound = () => {
-          targetState[hudId] = true;
-          updateHUDs();
-        };
-        anchor.onTargetLost = () => {
-          targetState[hudId] = false;
-          updateHUDs();
-        };
-
-        return { mindarThree, renderer, scene, camera, particles, ring, ring2, pointLight, getMixer: () => mixer };
-      }
-
-      // ── Instancias
-      const inst1 = createARInstance(
-        document.querySelector('#container1'),
-        './assets/target/Pachito_1.mind',
-        'hud1'
-      );
-      const inst2 = createARInstance(
-        document.querySelector('#container2'),
-        './assets/target/Pachito_2.mind',
-        'hud2'
-      );
-
-      // ── Loop compartido
-      function animateAll() {
-        const delta = clock.getDelta();
-        const t = clock.elapsedTime;
-
-        for (const inst of [inst1, inst2]) {
-          const { renderer, scene, camera, particles, ring, ring2, pointLight, getMixer } = inst;
-
-          particles.rotation.y = t * 0.3;
-          particles.rotation.x = t * 0.1;
-          ring.scale.setScalar(1 + Math.sin(t * 2) * 0.04);
-          ring2.rotation.z = t * 0.5;
-          pointLight.intensity = 1.5 + Math.sin(t * 3) * 0.5;
-
-          const mixer = getMixer();
-          if (mixer) mixer.update(delta);
-
-          renderer.render(scene, camera);
-        }
-      }
-
-      // ── Start / Stop
-      document.getElementById('startButton').addEventListener('click', async () => {
+      const start = async () => {
+        await mindarThree.start();
         document.getElementById('splash').classList.add('hidden');
         document.getElementById('scanPrompt').classList.remove('hidden');
         document.getElementById('control').classList.add('visible');
 
-        await Promise.all([
-          inst1.mindarThree.start(),
-          inst2.mindarThree.start(),
-        ]);
+        renderer.setAnimationLoop(() => {
+          const delta = clock.getDelta();
+          const t = clock.elapsedTime;
 
-        inst1.renderer.setAnimationLoop(animateAll);
-      });
+          // Animar partículas
+          particles.rotation.y = t * 0.3;
+          particles.rotation.x = t * 0.1;
 
+          // Pulso en el anillo
+          ring.scale.setScalar(1 + Math.sin(t * 2) * 0.04);
+          ring2.rotation.z = t * 0.5;
+
+          // Pulso en la luz de acento
+          pointLight.intensity = 1.5 + Math.sin(t * 3) * 0.5;
+
+          if (mixer) mixer.update(delta);
+
+          renderer.render(scene, camera);
+        });
+      };
+
+      document.getElementById('startButton').addEventListener('click', start);
       document.getElementById('stopButton').addEventListener('click', () => {
-        inst1.renderer.setAnimationLoop(null);
-        inst1.mindarThree.stop();
-        inst2.mindarThree.stop();
-
-        targetState.hud1 = false;
-        targetState.hud2 = false;
-
+        mindarThree.stop();
+        renderer.setAnimationLoop(null);
         document.getElementById('splash').classList.remove('hidden');
         document.getElementById('scanPrompt').classList.add('hidden');
-        document.getElementById('hud1').classList.remove('visible');
-        document.getElementById('hud2').classList.remove('visible');
+        document.getElementById('hud').classList.remove('visible');
         document.getElementById('control').classList.remove('visible');
       });
     </script>
@@ -200,15 +151,15 @@
 
       body { background: #000; font-family: 'DM Sans', sans-serif; overflow: hidden; }
 
-      #container1, #container2 {
-        position: fixed;
-        inset: 0;
+      /* ── CONTAINER AR ── */
+      #container {
         width: 100vw;
         height: 100vh;
+        position: relative;
+        overflow: hidden;
       }
-      #container2 { pointer-events: none; }
-      #container2 canvas { pointer-events: none; }
 
+      /* ── SPLASH ── */
       #splash {
         position: fixed; inset: 0; z-index: 100;
         background: linear-gradient(135deg, #0a0a0f 0%, #1a0a00 100%);
@@ -250,12 +201,14 @@
         border-radius: 4px;
         transition: all 0.25s ease;
       }
+
       #startButton {
         background: linear-gradient(90deg, var(--accent), var(--accent2));
         color: #fff;
         box-shadow: 0 0 30px rgba(255,106,0,0.4);
       }
       #startButton:hover { filter: brightness(1.15); transform: translateY(-2px); box-shadow: 0 0 50px rgba(255,106,0,0.6); }
+
       #stopButton {
         background: transparent;
         color: var(--dim);
@@ -263,6 +216,7 @@
       }
       #stopButton:hover { border-color: var(--accent); color: var(--accent); }
 
+      /* ── SCAN PROMPT ── */
       #scanPrompt {
         position: fixed; bottom: 42px; left: 50%; transform: translateX(-50%);
         z-index: 50;
@@ -304,14 +258,16 @@
         text-align: center;
       }
 
-      .hud {
+      /* ── HUD OVERLAY ── */
+      #hud {
         position: fixed; inset: 0; z-index: 30;
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.5s ease;
       }
-      .hud.visible { opacity: 1; }
+      #hud.visible { opacity: 1; }
 
+      /* Esquinas decorativas */
       .corner {
         position: absolute;
         width: 40px; height: 40px;
@@ -323,6 +279,7 @@
       .corner-bl { bottom: 20px; left: 20px; border-width: 0 0 2px 2px; }
       .corner-br { bottom: 20px; right: 20px; border-width: 0 2px 2px 0; }
 
+      /* Panel izquierdo */
       .hud-panel-left {
         position: absolute;
         top: 50%; left: 0;
@@ -331,6 +288,7 @@
         padding: 0 0 0 16px;
         animation: slideInLeft 0.6s ease forwards;
       }
+
       @keyframes slideInLeft {
         from { opacity: 0; transform: translateY(-50%) translateX(-30px); }
         to   { opacity: 1; transform: translateY(-50%) translateX(0); }
@@ -345,9 +303,21 @@
         border-radius: 0 8px 8px 0;
         min-width: 140px;
       }
-      .hud-stat-label { font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; }
-      .hud-stat-value { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; color: var(--text); letter-spacing: 0.05em; }
+      .hud-stat-label {
+        font-size: 0.62rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 3px;
+      }
+      .hud-stat-value {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 1.4rem;
+        color: var(--text);
+        letter-spacing: 0.05em;
+      }
 
+      /* Panel inferior */
       .hud-bottom {
         position: absolute;
         bottom: 0; left: 0; right: 0;
@@ -382,6 +352,7 @@
         letter-spacing: 0.04em;
       }
 
+      /* Badge de estado */
       .hud-badge {
         background: var(--glass);
         backdrop-filter: blur(12px);
@@ -403,6 +374,7 @@
       }
       @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
+      /* Panel superior derecho — tags */
       .hud-tags {
         position: absolute;
         top: 20px; right: 20px;
@@ -424,18 +396,27 @@
         text-transform: uppercase;
         color: var(--dim);
       }
-      .tag.active { border-color: rgba(255,106,0,0.5); color: var(--accent); }
+      .tag.active {
+        border-color: rgba(255,106,0,0.5);
+        color: var(--accent);
+      }
 
+      /* Línea de escaneo animada */
       .scan-line {
-        position: absolute; left: 0; right: 0;
+        position: absolute;
+        left: 0; right: 0;
         height: 1px;
         background: linear-gradient(90deg, transparent, var(--accent), transparent);
         opacity: 0.4;
         animation: scanMove 4s linear infinite;
         pointer-events: none;
       }
-      @keyframes scanMove { 0% { top: 0%; } 100% { top: 100%; } }
+      @keyframes scanMove {
+        0%   { top: 0%; }
+        100% { top: 100%; }
+      }
 
+      /* Control fijo (siempre visible durante AR) */
       #control {
         position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
         z-index: 200;
@@ -447,6 +428,7 @@
   </head>
 
   <body>
+    <!-- SPLASH -->
     <div id="splash">
       <div class="splash-logo">AR<br>EXPERIENCE</div>
       <div class="splash-sub">Realidad aumentada · Apunta tu cámara</div>
@@ -456,66 +438,63 @@
       </div>
     </div>
 
+    <!-- SCAN PROMPT (después de iniciar, antes de detectar) -->
     <div id="scanPrompt" class="hidden">
       <div class="scan-ring"></div>
       <div class="scan-label">Apunta al marcador</div>
     </div>
 
-    <!-- HUD 1 -->
-    <div id="hud1" class="hud">
+    <!-- HUD (cuando target detectado) -->
+    <div id="hud">
+      <!-- Esquinas -->
       <div class="corner corner-tl"></div>
       <div class="corner corner-tr"></div>
       <div class="corner corner-bl"></div>
       <div class="corner corner-br"></div>
+
+      <!-- Línea de escaneo -->
       <div class="scan-line"></div>
+
+      <!-- Stats izquierda -->
       <div class="hud-panel-left">
-        <div class="hud-stat"><div class="hud-stat-label">Estado</div><div class="hud-stat-value">ACTIVO</div></div>
-        <div class="hud-stat"><div class="hud-stat-label">Tracking</div><div class="hud-stat-value">100%</div></div>
-        <div class="hud-stat"><div class="hud-stat-label">Profundidad</div><div class="hud-stat-value">AR·3D</div></div>
+        <div class="hud-stat">
+          <div class="hud-stat-label">Estado</div>
+          <div class="hud-stat-value">ACTIVO</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-label">Tracking</div>
+          <div class="hud-stat-value">100%</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-label">Profundidad</div>
+          <div class="hud-stat-value">AR·3D</div>
+        </div>
       </div>
+
+      <!-- Tags superior derecha -->
       <div class="hud-tags">
         <div class="tag active">✦ Modelo 3D</div>
         <div class="tag">Realidad Aumentada</div>
         <div class="tag">WebXR</div>
       </div>
+
+      <!-- Panel inferior -->
       <div class="hud-bottom">
         <div class="hud-title-block">
           <div class="hud-title">OBJETO<br><span>DETECTADO</span></div>
           <div class="hud-desc">Modelo 3D renderizado en tiempo real sobre tu marcador. Mueve el dispositivo para explorar desde todos los ángulos.</div>
         </div>
-        <div class="hud-badge"><div class="badge-dot"></div>Live · AR</div>
-      </div>
-    </div>
-
-    <!-- HUD 2 -->
-    <div id="hud2" class="hud">
-      <div class="corner corner-tl"></div>
-      <div class="corner corner-tr"></div>
-      <div class="corner corner-bl"></div>
-      <div class="corner corner-br"></div>
-      <div class="scan-line"></div>
-      <div class="hud-panel-left">
-        <div class="hud-stat"><div class="hud-stat-label">Estado</div><div class="hud-stat-value">ACTIVO</div></div>
-        <div class="hud-stat"><div class="hud-stat-label">Tracking</div><div class="hud-stat-value">100%</div></div>
-        <div class="hud-stat"><div class="hud-stat-label">Profundidad</div><div class="hud-stat-value">AR·3D</div></div>
-      </div>
-      <div class="hud-tags">
-        <div class="tag active">✦ Modelo 3D</div>
-        <div class="tag">Realidad Aumentada</div>
-        <div class="tag">WebXR</div>
-      </div>
-      <div class="hud-bottom">
-        <div class="hud-title-block">
-          <div class="hud-title">OBJETO<br><span>DETECTADO</span></div>
-          <div class="hud-desc">Modelo 3D renderizado en tiempo real sobre tu marcador. Mueve el dispositivo para explorar desde todos los ángulos.</div>
+        <div class="hud-badge">
+          <div class="badge-dot"></div>
+          Live · AR
         </div>
-        <div class="hud-badge"><div class="badge-dot"></div>Live · AR</div>
       </div>
     </div>
 
-    <div id="container1"></div>
-    <div id="container2"></div>
+    <!-- Contenedor AR -->
+    <div id="container"></div>
 
+    <!-- Botones de control visibles durante AR -->
     <div id="control">
       <button id="startButton">▶ Start</button>
       <button id="stopButton">⏹ Stop</button>
