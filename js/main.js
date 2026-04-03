@@ -1,78 +1,160 @@
 import * as THREE from 'three';
-      import { MindARThree } from 'mindar-image-three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-      // 🧠 CONFIGURACIÓN DE TARGETS
-      const CONFIG = [
-        { color: 0xff0000 }, // target 0 → rojo
-        { color: 0x0000ff }, // target 1 → azul
-        // puedes seguir agregando más aquí
-      ];
+import { MindARThree } from 'mindar-image-three';
 
-      const mindarThree = new MindARThree({
-        container: document.querySelector("#container"),
-        imageTargetSrc: "./target/targets_pru.mind", // 👈 usa tu archivo con varios targets
-        maxTrack: CONFIG.length
+// ══════════════════════════════════════════════
+//  CONFIGURACIÓN DE TARGETS
+//  Agrega tantos objetos como targets tengas en tu .mind
+// ══════════════════════════════════════════════
+const CONFIG = [
+  {
+    id: 'TGT-001',
+    tag: 'Cubo Rojo',
+    color: 0xff2244,
+    colorHex: '#FF2244',
+    colorName: 'Rojo',
+    extra: 'Prioridad Alta',
+  },
+  {
+    id: 'TGT-002',
+    tag: 'Cubo Azul',
+    color: 0x0066ff,
+    colorHex: '#0066FF',
+    colorName: 'Azul',
+    extra: 'Prioridad Media',
+  },
+  // ← sigue agregando objetos aquí para más targets
+];
+
+// ══════════════════════════════════════════════
+//  REFERENCIAS DOM
+// ══════════════════════════════════════════════
+const splashEl   = document.getElementById('splash');
+const hudEl      = document.getElementById('hud');
+const startBtn   = document.getElementById('startButton');
+const stopBtn    = document.getElementById('stopButton');
+const hudStopBtn = document.getElementById('hudStopButton');
+
+const hudCard    = document.getElementById('target-card');
+const hudHint    = document.getElementById('hudHint');
+const hudId      = document.getElementById('hud-id');
+const hudTag     = document.getElementById('hud-tag');
+const hudColor   = document.getElementById('hud-color');
+const hudSwatch  = document.getElementById('hud-swatch');
+const hudExtra   = document.getElementById('hud-extra');
+
+// ══════════════════════════════════════════════
+//  HUD — actualizar info de un target
+// ══════════════════════════════════════════════
+function showTargetInfo(cfg) {
+  hudId.textContent     = cfg.id;
+  hudTag.textContent    = cfg.tag;
+  hudColor.textContent  = cfg.colorName;
+  hudSwatch.style.background = cfg.colorHex;
+  hudSwatch.style.boxShadow  = `0 0 8px ${cfg.colorHex}`;
+  hudExtra.textContent  = cfg.extra;
+
+  hudCard.classList.add('visible');
+  hudHint.classList.add('hidden');
+}
+
+function hideTargetInfo() {
+  hudCard.classList.remove('visible');
+  hudHint.classList.remove('hidden');
+}
+
+// ══════════════════════════════════════════════
+//  SETUP MINDAR
+// ══════════════════════════════════════════════
+const mindarThree = new MindARThree({
+  container: document.querySelector('#container'),
+  imageTargetSrc: './target/targets_pru.mind',
+  maxTrack: CONFIG.length,
+});
+
+const { renderer, scene, camera } = mindarThree;
+
+const cubes = [];
+let activeTargets = 0;
+
+CONFIG.forEach((cfg, index) => {
+  const anchor = mindarThree.addAnchor(index);
+
+  const cube = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.5, 0.5),
+    new THREE.MeshStandardMaterial({ color: cfg.color })
+  );
+
+   // Modelo GLB
+      const loader = new GLTFLoader();
+      let mixer;
+      loader.load('./assets/3d/modelo.glb', (gltf) => {
+        const model = gltf.scene;
+        model.scale.set(0.2, 0.2, 0.2);
+        model.position.set(0, 0.5, 0);
+        anchor.group.add(model);
+
+        if (gltf.animations && gltf.animations.length) {
+          mixer = new THREE.AnimationMixer(model);
+          mixer.clipAction(gltf.animations[0]).play();
+        }
       });
 
-      console.log("📦 Archivo .mind cargado");
+  cube.visible = false;
+  anchor.group.add(cube);
+  cubes.push(cube);
 
-      const { renderer, scene, camera } = mindarThree;
+  anchor.onTargetFound = () => {
+    cube.visible = true;
+    activeTargets++;
+    showTargetInfo(cfg);
+    console.log(`Target ${index} detectado →`, cfg.tag);
+  };
 
-      const cubes = [];
+  anchor.onTargetLost = () => {
+    cube.visible = false;
+    activeTargets--;
+    if (activeTargets <= 0) {
+      activeTargets = 0;
+      hideTargetInfo();
+    }
+    console.log(`Target ${index} perdido`);
+  };
+});
 
-      // 🔁 crear lógica por cada target
-      CONFIG.forEach((cfg, index) => {
-        const anchor = mindarThree.addAnchor(index);
+// Iluminación
+const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
+scene.add(light);
 
-        const cube = new THREE.Mesh(
-          new THREE.BoxGeometry(0.5, 0.5, 0.5),
-          new THREE.MeshStandardMaterial({ color: cfg.color })
-        );
+// ══════════════════════════════════════════════
+//  START / STOP
+// ══════════════════════════════════════════════
+const startAR = async () => {
+  // Ocultar splash, mostrar HUD
+  splashEl.classList.add('hidden');
+  hudEl.classList.add('active');
 
-        cube.visible = false;
-        anchor.group.add(cube);
-        cubes.push(cube);
+  await mindarThree.start();
 
-        // 🎯 eventos
-        anchor.onTargetFound = () => {
-          cube.visible = true;
-          console.log(`Target ${index} detectado`);
-        };
+  renderer.setAnimationLoop(() => {
+    cubes.forEach((cube) => {
+      if (cube.visible) cube.rotation.y += 0.02;
+    });
+    renderer.render(scene, camera);
+  });
+};
 
-        anchor.onTargetLost = () => {
-          cube.visible = false;
-          console.log(`Target ${index} perdido`);
-        };
-      });
+const stopAR = () => {
+  mindarThree.stop();
+  renderer.setAnimationLoop(null);
 
-      // 💡 luces (necesarias para material estándar)
-      const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
-      scene.add(light);
+  hudEl.classList.remove('active');
+  hideTargetInfo();
+  splashEl.classList.remove('hidden');
+  activeTargets = 0;
+};
 
-      // 🎬 START
-      const start = async () => {
-        await mindarThree.start();
-
-        renderer.setAnimationLoop(() => {
-
-          // animación
-          cubes.forEach((cube) => {
-            if (cube.visible) {
-              cube.rotation.y += 0.02;
-            }
-          });
-
-          renderer.render(scene, camera);
-        });
-      };
-
-      // 🎮 botones
-      const startButton = document.querySelector("#startButton");
-      const stopButton = document.querySelector("#stopButton");
-
-      startButton.addEventListener("click", start);
-
-      stopButton.addEventListener("click", () => {
-        mindarThree.stop();
-        renderer.setAnimationLoop(null);
-      });
+startBtn.addEventListener('click', startAR);
+stopBtn.addEventListener('click', stopAR);
+hudStopBtn.addEventListener('click', stopAR);
