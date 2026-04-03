@@ -1,0 +1,43 @@
+*{
+    margin: 0;
+    padding: 0;
+}
+      body {
+        margin: 0;
+        font-family: sans-serif;
+      }
+
+      #container {
+        width: 100vw;
+        height: 100vh;
+        position: relative;
+        overflow: hidden;
+      }
+
+      #control {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 2;
+        background: rgba(0,0,0,0.5);
+        padding: 10px;
+        border-radius: 8px;
+      }
+
+      button {
+        margin: 5px;
+        padding: 8px 12px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+
+      #startButton {
+        background: #00c853;
+        color: white;
+      }
+
+      #stopButton {
+        background: #d50000;
+        color: white;
+      }
