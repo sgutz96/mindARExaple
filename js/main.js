@@ -24,6 +24,22 @@ const CONFIG = [
     colorName: 'Azul',
     extra: 'Prioridad Media',
   },
+  {
+    id: 'TGT-003',
+    tag: 'Cubo verde',
+    color: 0x0066ff,
+    colorHex: '#00ff22',
+    colorName: 'verde',
+    extra: 'Prioridad baja',
+  },
+  {
+    id: 'TGT-004',
+    tag: 'Cubo Pink',
+    color: 0x0066ff,
+    colorHex: '#ff00f2',
+    colorName: 'Pink',
+    extra: 'Prioridad Media',
+  },
   // ← sigue agregando objetos aquí para más targets
 ];
 
