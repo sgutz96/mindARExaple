@@ -85,7 +85,7 @@ function hideTargetInfo() {
 // ══════════════════════════════════════════════
 const mindarThree = new MindARThree({
   container: document.querySelector('#container'),
-  imageTargetSrc: './target/targets_Tesis.mind',
+  imageTargetSrc: './target/targets_Armada.mind',
   maxTrack: CONFIG.length,
 });
 
@@ -105,10 +105,10 @@ CONFIG.forEach((cfg, index) => {
    // Modelo GLB
       const loader = new GLTFLoader();
       let mixer;
-      loader.load('./assets/3d/modelo.glb', (gltf) => {
+      loader.load('./assets/3d/Armada/Armada_1.glb', (gltf) => {
         const model = gltf.scene;
         model.scale.set(0.2, 0.2, 0.2);
-        model.position.set(0, 0.5, 0);
+        model.position.set(0, 0, 0);
         anchor.group.add(model);
 
         if (gltf.animations && gltf.animations.length) {
@@ -118,7 +118,7 @@ CONFIG.forEach((cfg, index) => {
       });
 
   cube.visible = false;
-  anchor.group.add(cube);
+  //anchor.group.add(cube);
   cubes.push(cube);
 
   anchor.onTargetFound = () => {
