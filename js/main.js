@@ -10,7 +10,7 @@ import { MindARThree } from 'mindar-image-three';
 const CONFIG = [
   {
     id: 'TGT-001',
-    tag: 'Cubo Rojo',
+    tag: 'Casa almirante',
     color: 0xff2244,
     colorHex: '#FF2244',
     colorName: 'Rojo',
@@ -18,7 +18,7 @@ const CONFIG = [
   },
   {
     id: 'TGT-002',
-    tag: 'Cubo Azul',
+    tag: 'Entrevista mujeres',
     color: 0x0066ff,
     colorHex: '#0066FF',
     colorName: 'Azul',
@@ -26,7 +26,7 @@ const CONFIG = [
   },
   {
     id: 'TGT-003',
-    tag: 'Cubo verde',
+    tag: 'Cerro de la cansona',
     color: 0x0066ff,
     colorHex: '#00ff22',
     colorName: 'verde',
@@ -34,7 +34,7 @@ const CONFIG = [
   },
   {
     id: 'TGT-004',
-    tag: 'Cubo Pink',
+    tag: 'Telar',
     color: 0x0066ff,
     colorHex: '#ff00f2',
     colorName: 'Pink',
