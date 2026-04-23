@@ -9,12 +9,13 @@ import { MindARThree } from 'mindar-image-three';
 // ══════════════════════════════════════════════
 const CONFIG = [
   {
-    id: 'TGT-001',
-    tag: 'Casa almirante',
+    id: 'Casa almirante',
+    tag: '2004',
     color: 0xff2244,
     colorHex: '#FF2244',
-    colorName: 'Rojo',
-    extra: 'Prioridad Alta',
+    colorName: 'Carme de bolibar',
+    extra: 'población y fuerza publica',
+    modelo: 'Casa Almirante.glb ',
   },
   {
     id: 'TGT-002',
@@ -23,6 +24,7 @@ const CONFIG = [
     colorHex: '#0066FF',
     colorName: 'Azul',
     extra: 'Prioridad Media',
+    modelo: 'Armada_1.glb',
   },
   {
     id: 'TGT-003',
@@ -31,6 +33,7 @@ const CONFIG = [
     colorHex: '#00ff22',
     colorName: 'verde',
     extra: 'Prioridad baja',
+    modelo: 'Armada_1.glb',
   },
   {
     id: 'TGT-004',
@@ -39,6 +42,7 @@ const CONFIG = [
     colorHex: '#ff00f2',
     colorName: 'Pink',
     extra: 'Prioridad Media',
+    modelo: 'Telar.glb',
   },
   // ← sigue agregando objetos aquí para más targets
 ];
@@ -105,7 +109,8 @@ CONFIG.forEach((cfg, index) => {
    // Modelo GLB
       const loader = new GLTFLoader();
       let mixer;
-      loader.load('./assets/3d/Armada/Armada_1.glb', (gltf) => {
+      var linkModel = './assets/3d/Armada/' + cfg.modelo;
+      loader.load(linkModel , (gltf) => {
         const model = gltf.scene;
         model.scale.set(0.2, 0.2, 0.2);
         model.position.set(0, 0, 0);

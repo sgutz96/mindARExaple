@@ -7,13 +7,13 @@
 }
 
 :root {
-  --neon-cyan: #00f5ff;
+  --neon-cyan: #000000;
   --neon-magenta: #ff00cc;
   --neon-yellow: #ffe600;
   --neon-green: #00ff88;
   --dark-bg: #080c14;
   --panel-bg: rgba(8, 12, 20, 0.85);
-  --border-glow: rgba(0, 245, 255, 0.4);
+  --border-glow: rgba(119, 91, 0, 0.4);
 }
 
 body {
@@ -289,8 +289,9 @@ body {
   transform: translateX(-50%);
   width: clamp(280px, 80vw, 420px);
   background: var(--panel-bg);
-  border: 1px solid var(--border-glow);
-  border-radius: 4px;
+  background-image: url("../assets/img/fondos/Paper.png");
+  border: 2px solid var(--border-glow);
+  border-radius: 3px;
   padding: 1.2rem 1.4rem;
   backdrop-filter: blur(12px);
   transition: opacity 0.3s, transform 0.3s;
